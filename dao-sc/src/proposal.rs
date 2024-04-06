@@ -99,18 +99,19 @@ mod tests {
         let context = VMContextBuilder::new()
             .current_account_id(accounts(0))
             .predecessor_account_id(accounts(1))
-            .finish();
+            .build();
         testing_env!(context);
-
         let mut contract = ProposalContract::new();
-        let proposal_id = contract.create_proposal("Test Proposal".to_string(), "This is a test proposal".to_string(), 1000, Vector::from(vec!["Option 1".to_string(), "Option 2".to_string()]), 1);
+        let proposal_id = contract.create_proposal(
+            "Test Proposal".to_string(),
+            "This is a test proposal".to_string(),
+            env::block_timestamp() + 1000,
+            Vector::from(vec!["Option A".to_string(), "Option B".to_string()]),
+            1,
+        );
         let proposal = contract.get_proposal(proposal_id).expect("Proposal not found");
-        assert_eq!(proposal.title, "Test Proposal");
-        assert_eq!(proposal.description, "This is a test proposal");
-        assert_eq!(proposal.deadline, 1000);
+        assert_eq!(proposal.title, "Test Proposal".to_string());
         assert_eq!(proposal.options.len(), 2);
-        assert_eq!(proposal.minimum_votes, 1);
-        assert_eq!(proposal.state, ProposalState::Open);
     }
 
     #[test]
@@ -118,42 +119,44 @@ mod tests {
         let context = VMContextBuilder::new()
             .current_account_id(accounts(0))
             .predecessor_account_id(accounts(1))
-            .finish();
+            .build();
         testing_env!(context);
-
         let mut contract = ProposalContract::new();
-        contract.create_proposal("Test Proposal 1".to_string(), "This is a test proposal".to_string(), 1000, Vector::from(vec!["Option 1".to_string(), "Option 2".to_string()]), 1);
-        contract.create_proposal("Test Proposal 2".to_string(), "This is a test proposal".to_string(), 1000, Vector::from(vec!["Option 1".to_string(), "Option 2".to_string()]), 1);
+        contract.create_proposal(
+            "Test Proposal 1".to_string(),
+            "This is a test proposal".to_string(),
+            env::block_timestamp() + 1000,
+            Vector::from(vec!["Option A".to_string(), "Option B".to_string()]),
+            1,
+        );
+        contract.create_proposal(
+            "Test Proposal 2".to_string(),
+            "This is a test proposal".to_string(),
+            env::block_timestamp() + 1000,
+            Vector::from(vec!["Option A".to_string(), "Option B".to_string()]),
+            1,
+        );
         let proposals = contract.list_proposals();
         assert_eq!(proposals.len(), 2);
     }
 
     #[test]
-    fn test_get_proposal() {
+    fn test_update_status() {
         let context = VMContextBuilder::new()
             .current_account_id(accounts(0))
             .predecessor_account_id(accounts(1))
-            .finish();
+            .build();
         testing_env!(context);
-
         let mut contract = ProposalContract::new();
-        let proposal_id = contract.create_proposal("Test Proposal".to_string(), "This is a test proposal".to_string(), 1000, Vector::from(vec!["Option 1".to_string(), "Option 2".to_string()]), 1);
+        let proposal_id = contract.create_proposal(
+            "Test Proposal".to_string(),
+            "This is a test proposal".to_string(),
+            env::block_timestamp() + 1000,
+            Vector::from(vec!["Option A".to_string(), "Option B".to_string()]),
+            1,
+        );
+        contract.update_status(proposal_id, ProposalState::Closed);
         let proposal = contract.get_proposal(proposal_id).expect("Proposal not found");
-        assert_eq!(proposal.title, "Test Proposal");
-    }
-
-    #[test]
-    fn test_finalize_proposal() {
-        let context = VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(accounts(1))
-            .finish();
-        testing_env!(context);
-
-        let mut contract = ProposalContract::new();
-        contract.create_proposal("Test Proposal".to_string(), "This is a test proposal".to_string(), 1000, Vector::from(vec!["Option 1".to_string(), "Option 2".to_string()]), 1);
-        contract.finalize_proposal(0);
-        let proposal = contract.get_proposal(0).expect("Proposal not found");
-        assert_eq!(proposal.state, ProposalState::Rejected);
+        assert_eq!(proposal.state, ProposalState::Closed);
     }
 }

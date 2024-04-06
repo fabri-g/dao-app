@@ -57,16 +57,54 @@ mod tests {
     use near_sdk::{testing_env};
 
     #[test]
-    fn test_create_proposal() {
+    fn test_dao() {
         let context = VMContextBuilder::new()
             .current_account_id(accounts(0))
             .predecessor_account_id(accounts(1))
             .finish();
         testing_env!(context);
 
-        let mut dao = DAO::new(accounts(0));
-        let proposal_id = dao.create_proposal("Test Proposal".to_string(), "This is a test proposal".to_string(), 1000, vec!["Option 1".to_string(), "Option 2".to_string()]);
+        let mut contract = DAO::new(accounts(0));
+        let proposal_id = contract.create_proposal("Test Proposal".to_string(), "This is a test proposal".to_string(), 1000, vec!["Option 1".to_string(), "Option 2".to_string()], 1);
+        contract.finalize_proposal(proposal_id);
+    }
 
+    #[test]
+    #[should_panic(expected = "Only the admin can create proposals")]
+    fn test_dao_create_proposal_fail() {
+        let context = VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(accounts(1))
+            .finish();
+        testing_env!(context);
+
+        let mut contract = DAO::new(accounts(1));
+        contract.create_proposal("Test Proposal".to_string(), "This is a test proposal".to_string(), 1000, vec!["Option 1".to_string(), "Option 2".to_string()], 1);
+    }
+
+    #[test]
+    fn test_dao_create_proposal() {
+        let context = VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(accounts(0))
+            .finish();
+        testing_env!(context);
+
+        let mut contract = DAO::new(accounts(0));
+        let proposal_id = contract.create_proposal("Test Proposal".to_string(), "This is a test proposal".to_string(), 1000, vec!["Option 1".to_string(), "Option 2".to_string()], 1);
         assert_eq!(proposal_id, 0);
+    }
+
+    #[test]
+    fn test_dao_finalize_proposal() {
+        let context = VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(accounts(0))
+            .finish();
+        testing_env!(context);
+
+        let mut contract = DAO::new(accounts(0));
+        let proposal_id = contract.create_proposal("Test Proposal".to_string(), "This is a test proposal".to_string(), 1000, vec!["Option 1".to_string(), "Option 2".to_string()], 1);
+        contract.finalize_proposal(proposal_id);
     }
 }
