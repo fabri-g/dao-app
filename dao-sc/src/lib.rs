@@ -5,9 +5,10 @@ use near_sdk::collections::UnorderedMap;
 
 // Modules
 mod proposal;
-use proposal::ProposalContract;
+use proposal::{ProposalContract, ProposalState};
 
 mod vote;
+use vote::count_votes;
 
 //DAO Structure
 #[near_bindgen]
@@ -27,7 +28,7 @@ impl DAO {
         }
     }
 
-    pub fn create_proposal(&mut self, title: String, description: String, deadline: u64, options: Vec<String>) -> u64 {
+    pub fn create_proposal(&mut self, title: String, description: String, deadline: u64, options: Vec<String>, minimum_votes: u8) -> u64 {
         // Verify the caller is the admin
         assert_eq!(env::predecessor_account_id(), self.admin, "Only the admin can create proposals");
 
@@ -35,7 +36,12 @@ impl DAO {
         let mut proposal_contract = ProposalContract::new();
 
         // Create proposal using the ProposalContract
-        proposal_contract.create_proposal(title, description, deadline, options)
+        proposal_contract.create_proposal(title, description, deadline, options, minimum_votes)
+    }
+
+    pub fn finalize_proposal(&mut self, proposal_id: u64) {
+        let result_state = count_votes(proposal_id);
+        self.update_status(proposal_id, result_state);
     }
 }
 

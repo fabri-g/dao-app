@@ -3,6 +3,15 @@ use near_sdk::{ env, near_bindgen, AccountId, PanicOnDefault};
 use near_sdk::ext_contract;
 use near_sdk::collections::{UnorderedMap, Vector};
 
+// Represent the state of a proposal
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+pub enum ProposalState {
+    Open,
+    Closed,
+    Passed,
+    Rejected,
+}
+
 //Proposal Structure
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -11,7 +20,9 @@ pub struct Proposal {
     description: String,
     deadline: u64,
     options: Vector<String>,
+    minimum_votes: u8,
     votes: UnorderedMap<AccountId, u8>,
+    state: ProposalState,
 }
 
 //Proposal Contract Structure
@@ -36,18 +47,22 @@ impl ProposalContract {
     }
 
     // Create a new proposal
-    pub fn create_proposal(&mut self, title: String, description: String, deadline: u64, options: Vector<String>) {
+    pub fn create_proposal(&mut self, title: String, description: String, deadline: u64, options: Vector<String>, minimum_votes: u8) -> u64 {
         let proposal_id = self.proposal_count;
         let new_proposal = Proposal {
             title,
             description,
             deadline,
             options: Vector::from(options),
+            minimum_votes,
             votes: UnorderedMap::new(format!("v{}", proposal_id).as_bytes()),
+            state: ProposalState::Open,
         };
+        assert!(deadline > env::block_timestamp(), "Deadline must be in the future");
+        assert!(options.len() > 1, "At least two options are required")
         self.proposals.insert(&proposal_id, &new_proposal);
         self.proposal_count += 1;
-        env::log_str(&format!("Proposal {} created", proposal_id));
+        env::log_str(&format!("Proposal {} created: '{}'", proposal_id, title));
         proposal_id
     }
 
@@ -60,11 +75,15 @@ impl ProposalContract {
     pub fn list_proposals(&self) -> Vec<(u64, Proposal)> {
         self.proposals.iter().collect()
     }
-}
 
-#[ext_contract(ext_proposal)]
-pub trait ExtProposalContract {
-    fn get_proposal(&self, proposal_id: u64) -> Proposal;
+    // Update proposal status
+    pub fn update_status(&mut self, proposal_id: u64, new_state: ProposalState) {
+        let mut proposal = self.proposals.get(&proposal_id).expect("Proposal not found");
+        proposal.state = new_state;
+        self.proposals.insert(&proposal_id, &proposal);
+        env::log_str(&format!("Proposal {} status updated to {:?}", proposal_id, new_state));
+    }
+        
 }
 
 // The rest of this file holds the inline tests for the code above
@@ -72,63 +91,69 @@ pub trait ExtProposalContract {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use near_sdk::test_utils::{VMContextBuilder};
-    use near_sdk::MockedBlockchain;
-    use near_sdk::{testing_env, AccountId};
-
-    // Helper function to set up the environment
-    fn get_context(is_view: bool) -> VMContextBuilder {
-        let mut builder = VMContextBuilder::new();
-        builder.current_account_id(AccountId::new_unchecked("dao.testnet".to_string()));
-        if is_view {
-            builder.is_view(is_view);
-        }
-        builder
-    }
+    use near_sdk::test_utils::{accounts, VMContextBuilder};
+    use near_sdk::{testing_env};
 
     #[test]
-    fn create_and_retrieve_proposal() {
-        let context = get_context(false);
-        testing_env!(context.build());
+    fn test_create_proposal() {
+        let context = VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(accounts(1))
+            .finish();
+        testing_env!(context);
 
         let mut contract = ProposalContract::new();
-        let proposal_id = contract.create_proposal(
-            "Proposal Title".to_string(),
-            "Proposal Description".to_string(),
-            1_000_000_000, 
-            vec![
-                "Option A".to_string(),
-                "Option B".to_string()
-            ]
-        );
-
-        let proposal = contract.get_proposal(proposal_id).unwrap();
-        assert_eq!(proposal.title, "Proposal Title".to_string());
-        assert_eq!(proposal.description, "Proposal Description".to_string());
-        assert_eq!(proposal.deadline, 1_000_000_000);
+        let proposal_id = contract.create_proposal("Test Proposal".to_string(), "This is a test proposal".to_string(), 1000, Vector::from(vec!["Option 1".to_string(), "Option 2".to_string()]), 1);
+        let proposal = contract.get_proposal(proposal_id).expect("Proposal not found");
+        assert_eq!(proposal.title, "Test Proposal");
+        assert_eq!(proposal.description, "This is a test proposal");
+        assert_eq!(proposal.deadline, 1000);
         assert_eq!(proposal.options.len(), 2);
-        assert_eq!(proposal.votes.len(), 0);
+        assert_eq!(proposal.minimum_votes, 1);
+        assert_eq!(proposal.state, ProposalState::Open);
     }
 
     #[test]
-    fn list_proposals() {
-        let context = get_context(true);
-        testing_env!(context.build());
+    fn test_list_proposals() {
+        let context = VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(accounts(1))
+            .finish();
+        testing_env!(context);
 
-        let contract = ProposalContract::new();
-        let proposal_id = contract.create_proposal(
-            "Proposal Title".to_string(),
-            "Proposal Description".to_string(),
-            1_000_000_000, 
-            vec![
-                "Option A".to_string(),
-                "Option B".to_string()
-            ]
-        );
-
+        let mut contract = ProposalContract::new();
+        contract.create_proposal("Test Proposal 1".to_string(), "This is a test proposal".to_string(), 1000, Vector::from(vec!["Option 1".to_string(), "Option 2".to_string()]), 1);
+        contract.create_proposal("Test Proposal 2".to_string(), "This is a test proposal".to_string(), 1000, Vector::from(vec!["Option 1".to_string(), "Option 2".to_string()]), 1);
         let proposals = contract.list_proposals();
-        assert_eq!(proposals.len(), 1);
-        assert_eq!(proposals[0].0, proposal_id);
-        assert_eq!(proposals[0].1.title, "Proposal Title".to_string());
+        assert_eq!(proposals.len(), 2);
+    }
+
+    #[test]
+    fn test_get_proposal() {
+        let context = VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(accounts(1))
+            .finish();
+        testing_env!(context);
+
+        let mut contract = ProposalContract::new();
+        let proposal_id = contract.create_proposal("Test Proposal".to_string(), "This is a test proposal".to_string(), 1000, Vector::from(vec!["Option 1".to_string(), "Option 2".to_string()]), 1);
+        let proposal = contract.get_proposal(proposal_id).expect("Proposal not found");
+        assert_eq!(proposal.title, "Test Proposal");
+    }
+
+    #[test]
+    fn test_finalize_proposal() {
+        let context = VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(accounts(1))
+            .finish();
+        testing_env!(context);
+
+        let mut contract = ProposalContract::new();
+        contract.create_proposal("Test Proposal".to_string(), "This is a test proposal".to_string(), 1000, Vector::from(vec!["Option 1".to_string(), "Option 2".to_string()]), 1);
+        contract.finalize_proposal(0);
+        let proposal = contract.get_proposal(0).expect("Proposal not found");
+        assert_eq!(proposal.state, ProposalState::Rejected);
     }
 }
