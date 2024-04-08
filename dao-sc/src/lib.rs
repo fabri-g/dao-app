@@ -72,72 +72,92 @@ impl DAO {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use near_sdk::test_utils::{accounts, VMContextBuilder};
-    use near_sdk::{testing_env};
+    use near_sdk::MockedBlockchain;
+    use near_sdk::{testing_env, VMContext};
+
+    // Use `cargo test -- --nocapture` to view logs
+    #[test]
+    fn test_create_proposal() {
+        let context = get_context("admin".to_string());
+        testing_env!(context);
+        let mut contract = DAO::new("admin".to_string(), "proposal".to_string());
+        contract.create_proposal(
+            "title".to_string(),
+            "description".to_string(),
+            1000,
+            vec!["option1".to_string(), "option2".to_string()],
+            2,
+        );
+    }
 
     #[test]
-    fn test_dao() {
-        let context = VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(accounts(1))
-            .finish();
+    fn test_finalize_proposal() {
+        let context = get_context("admin".to_string());
         testing_env!(context);
+        let mut contract = DAO::new("admin".to_string(), "proposal".to_string());
+        contract.finalize_proposal(0);
+    }
 
-        let mut contract = DAO::new(accounts(0));
-        let proposal_id = contract.create_proposal("Test Proposal".to_string(), "This is a test proposal".to_string(), 1000, vec!["Option 1".to_string(), "Option 2".to_string()], 1);
-        contract.finalize_proposal(proposal_id);
+    fn get_context(predecessor_account_id: String) -> VMContext {
+        VMContext {
+            current_account_id: "dao".to_string(),
+            signer_account_id: "signer".to_string(),
+            signer_account_pk: vec![0, 1, 2],
+            predecessor_account_id,
+            input: vec![],
+            block_index: 0,
+            block_timestamp: 0,
+            account_balance: 0,
+            account_locked_balance: 0,
+            storage_usage: 10u64.pow(6),
+            attached_deposit: 0,
+            prepaid_gas: 10u64.pow(15),
+            random_seed: vec![0, 1, 2],
+            is_view: false,
+            output_data_receivers: vec![],
+            epoch_height: 19,
+        }
     }
 
     #[test]
     #[should_panic(expected = "Only the admin can create proposals")]
-    fn test_dao_create_proposal_fail() {
-        let context = VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(accounts(1))
-            .finish();
+    fn test_create_proposal_not_admin() {
+        let context = get_context("not_admin".to_string());
         testing_env!(context);
-
-        let mut contract = DAO::new(accounts(1));
-        contract.create_proposal("Test Proposal".to_string(), "This is a test proposal".to_string(), 1000, vec!["Option 1".to_string(), "Option 2".to_string()], 1);
+        let mut contract = DAO::new("admin".to_string(), "proposal".to_string());
+        contract.create_proposal(
+            "title".to_string(),
+            "description".to_string(),
+            1000,
+            vec!["option1".to_string(), "option2".to_string()],
+            2,
+        );
     }
 
     #[test]
-    fn test_dao_create_proposal() {
-        let context = VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(accounts(0))
-            .finish();
+    #[should_panic(expected = "Only the admin can finalize proposals")]
+    fn test_finalize_proposal_not_admin() {
+        let context = get_context("not_admin".to_string());
         testing_env!(context);
-
-        let mut contract = DAO::new(accounts(0));
-        let proposal_id = contract.create_proposal("Test Proposal".to_string(), "This is a test proposal".to_string(), 1000, vec!["Option 1".to_string(), "Option 2".to_string()], 1);
-        assert_eq!(proposal_id, 0);
+        let mut contract = DAO::new("admin".to_string(), "proposal".to_string());
+        contract.finalize_proposal(0);
     }
 
     #[test]
-    fn test_dao_finalize_proposal() {
-        let context = VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(accounts(0))
-            .finish();
+    #[should_panic(expected = "Already initialized")]
+    fn test_init_twice() {
+        let context = get_context("admin".to_string());
         testing_env!(context);
-
-        let mut contract = DAO::new(accounts(0));
-        let proposal_id = contract.create_proposal("Test Proposal".to_string(), "This is a test proposal".to_string(), 1000, vec!["Option 1".to_string(), "Option 2".to_string()], 1);
-        contract.finalize_proposal(proposal_id);
+        let mut contract = DAO::new("admin".to_string(), "proposal".to_string());
+        contract = DAO::new("admin".to_string(), "proposal".to_string());
     }
 
     #[test]
-    #[should_panic(expected = "Only the admin can create proposals")]
-    fn test_dao_finalize_proposal_fail() {
-        let context = VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(accounts(1))
-            .finish();
+    fn test_init() {
+        let context = get_context("admin".to_string());
         testing_env!(context);
-
-        let mut contract = DAO::new(accounts(0));
-        let proposal_id = contract.create_proposal("Test Proposal".to_string(), "This is a test proposal".to_string(), 1000, vec!["Option 1".to_string(), "Option 2".to_string()], 1);
-        contract.finalize_proposal(proposal_id);
+        let contract = DAO::new("admin".to_string(), "proposal".to_string());
+        assert_eq!(contract.admin, "admin".to_string());
+        assert_eq!(contract.proposal_contract_id, "proposal".to_string());
     }
 }

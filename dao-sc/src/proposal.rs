@@ -93,84 +93,150 @@ impl ProposalContract {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use near_sdk::test_utils::{accounts, VMContextBuilder};
-    use near_sdk::{testing_env};
+    use near_sdk::MockedBlockchain;
+    use near_sdk::{testing_env, VMContext};
 
+    // Use `cargo test --lib` to run unit tests
     #[test]
-    fn test_create_proposal() {
-        let context = VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(accounts(1))
-            .build();
+    fn test_proposal() {
+        let context = get_context("alice");
         testing_env!(context);
         let mut contract = ProposalContract::new();
         let proposal_id = contract.create_proposal(
             "Test Proposal".to_string(),
             "This is a test proposal".to_string(),
             env::block_timestamp() + 1000,
-            Vector::from(vec!["Option A".to_string(), "Option B".to_string()]),
+            Vector::from(vec!["Yes".to_string(), "No".to_string()]),
             1,
         );
         let proposal = contract.get_proposal(proposal_id).expect("Proposal not found");
         assert_eq!(proposal.title, "Test Proposal".to_string());
+        assert_eq!(proposal.state, ProposalState::Open);
         assert_eq!(proposal.options.len(), 2);
+        assert_eq!(proposal.options.get(0).unwrap(), "Yes".to_string());
+        assert_eq!(proposal.options.get(1).unwrap(), "No".to_string());
+    }
+
+    fn get_context(predecessor_account_id: AccountId) -> VMContext {
+        VMContext {
+            current_account_id: "proposal_contract".to_string(),
+            signer_account_id: "proposal_contract".to_string(),
+            signer_account_pk: vec![0, 1, 2],
+            predecessor_account_id,
+            input: vec![],
+            block_index: 0,
+            block_timestamp: 1_600_000_000_000,
+            account_balance: 10u128.pow(26),
+            account_locked_balance: 0,
+            storage_usage: 10u64.pow(6),
+            attached_deposit: 0,
+            prepaid_gas: 10u64.pow(15),
+            random_seed: vec![0, 1, 2],
+            is_view: false,
+            output_data_receivers: vec![],
+            epoch_height: 0,
+        }
     }
 
     #[test]
-    fn test_list_proposals() {
-        let context = VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(accounts(1))
-            .build();
-        testing_env!(context);
-        let mut contract = ProposalContract::new();
-        contract.create_proposal(
-            "Test Proposal 1".to_string(),
-            "This is a test proposal".to_string(),
-            env::block_timestamp() + 1000,
-            Vector::from(vec!["Option A".to_string(), "Option B".to_string()]),
-            1,
-        );
-        contract.create_proposal(
-            "Test Proposal 2".to_string(),
-            "This is a test proposal".to_string(),
-            env::block_timestamp() + 1000,
-            Vector::from(vec!["Option A".to_string(), "Option B".to_string()]),
-            1,
-        );
-        let proposals = contract.list_proposals();
-        assert_eq!(proposals.len(), 2);
-    }
-
-    #[test]
-    fn test_update_status() {
-        let context = VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(accounts(1))
-            .build();
+    fn test_vote() {
+        let context = get_context("alice".to_string());
         testing_env!(context);
         let mut contract = ProposalContract::new();
         let proposal_id = contract.create_proposal(
             "Test Proposal".to_string(),
             "This is a test proposal".to_string(),
             env::block_timestamp() + 1000,
-            Vector::from(vec!["Option A".to_string(), "Option B".to_string()]),
+            Vector::from(vec!["Yes".to_string(), "No".to_string()]),
             1,
         );
-        contract.update_status(proposal_id, ProposalState::Closed);
+        contract.vote(proposal_id, 0);
         let proposal = contract.get_proposal(proposal_id).expect("Proposal not found");
-        assert_eq!(proposal.state, ProposalState::Closed);
+        assert_eq!(proposal.votes.get("alice".as_bytes()).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_update_status() {
+        let context = get_context("alice".to_string());
+        testing_env!(context);
+        let mut contract = ProposalContract::new();
+        let proposal_id = contract.create_proposal(
+            "Test Proposal".to_string(),
+            "This is a test proposal".to_string(),
+            env::block_timestamp() + 1000,
+            Vector::from(vec!["Yes".to_string(), "No".to_string()]),
+            1,
+        );
+        contract.vote(proposal_id, 0);
+        contract.update_status(proposal_id);
+        let proposal = contract.get_proposal(proposal_id).expect("Proposal not found");
+        assert_eq!(proposal.state, ProposalState::Passed);
+    }
+
+    #[test]
+    fn test_list_proposals() {
+        let context = get_context("alice".to_string());
+        testing_env!(context);
+        let mut contract = ProposalContract::new();
+        let proposal_id = contract.create_proposal(
+            "Test Proposal".to_string(),
+            "This is a test proposal".to_string(),
+            env::block_timestamp() + 1000,
+            Vector::from(vec!["Yes".to_string(), "No".to_string()]),
+            1,
+        );
+        let proposals = contract.list_proposals();
+        assert_eq!(proposals.len(), 1);
+        assert_eq!(proposals[0].0, proposal_id);
     }
 
     #[test]
     #[should_panic(expected = "Proposal not found")]
-    fn test_update_status_fail() {
-        let context = VMContextBuilder::new()
-            .current_account_id(accounts(0))
-            .predecessor_account_id(accounts(1))
-            .build();
+    fn test_vote_invalid_proposal() {
+        let context = get_context("alice".to_string());
         testing_env!(context);
         let mut contract = ProposalContract::new();
-        contract.update_status(0, ProposalState::Closed);
+        contract.vote(0, 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Proposal not found")]
+    fn test_update_status_invalid_proposal() {
+        let context = get_context("alice".to_string());
+        testing_env!(context);
+        let mut contract = ProposalContract::new();
+        contract.update_status(0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Deadline must be in the future")]
+    fn test_create_proposal_invalid_deadline() {
+        let context = get_context("alice".to_string());
+        testing_env!(context);
+        let mut contract = ProposalContract::new();
+        contract.create_proposal(
+            "Test Proposal".to_string(),
+            "This is a test proposal".to_string(),
+            env::block_timestamp(),
+            Vector::from(vec!["Yes".to_string(), "No".to_string()]),
+            1,
+        );
+    }
+
+    #[test]
+    test_list_proposals {
+        let context = get_context("alice".to_string());
+        testing_env!(context);
+        let mut contract = ProposalContract::new();
+        let proposal_id = contract.create_proposal(
+            "Test Proposal".to_string(),
+            "This is a test proposal".to_string(),
+            env::block_timestamp() + 1000,
+            Vector::from(vec!["Yes".to_string(), "No".to_string()]),
+            1,
+        );
+        let proposals = contract.list_proposals();
+        assert_eq!(proposals.len(), 1);
+        assert_eq!(proposals[0].0, proposal_id);
     }
 }
