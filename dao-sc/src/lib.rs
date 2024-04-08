@@ -1,47 +1,66 @@
 // Find all our documentation at https://docs.near.org
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::{env, near_bindgen, AccountId, PanicOnDefault};
-use near_sdk::collections::UnorderedMap;
-
-// Modules
-mod proposal;
-use proposal::{ProposalContract, ProposalState};
-
-mod vote;
-use vote::count_votes;
+use near_sdk:: {
+    env, 
+    near_bindgen,
+    AccountId,
+    PanicOnDefault,
+    Gas,
+    ext_contract, 
+    NearToken
+};
 
 //DAO Structure
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct DAO {
     admin: AccountId,
+    proposal_contract_id: AccountId,
+}
+
+// Cross-Contract Call Needed
+#[ext_contract(proposal_contract)]
+pub trait ProposalContractInterface {
+    fn create_proposal(&mut self, title: String, description: String, deadline: u64, options: Vec<String>, minimum_votes: u8);
+    fn update_status(&mut self, proposal_id: u64);
 }
 
 // Implement the DAO structure
 #[near_bindgen]
 impl DAO {
     #[init]
-    pub fn new(admin_account_id: AccountId) -> Self {
+    pub fn new(admin_account_id: AccountId, proposal_contract_id: AccountId) -> Self {
         assert!(!env::state_exists(), "Already initialized");
         Self {
             admin: admin_account_id,
+            proposal_contract_id,
         }
     }
 
-    pub fn create_proposal(&mut self, title: String, description: String, deadline: u64, options: Vec<String>, minimum_votes: u8) -> u64 {
+    pub fn create_proposal(&mut self, title: String, description: String, deadline: u64, options: Vec<String>, minimum_votes: u8) {
         // Verify the caller is the admin
         assert_eq!(env::predecessor_account_id(), self.admin, "Only the admin can create proposals");
 
-        // Initialize ProposalContract instance
-        let mut proposal_contract = ProposalContract::new();
-
-        // Create proposal using the ProposalContract
-        proposal_contract.create_proposal(title, description, deadline, options, minimum_votes)
+        proposal_contract::ext(self.proposal_contract_id.clone())
+            .with_attached_deposit(NearToken::from_near(0))
+            .with_static_gas(Gas::from_tgas(20))
+            .create_proposal(
+                title,
+                description,
+                deadline,
+                options,
+                minimum_votes,
+            );
     }
 
     pub fn finalize_proposal(&mut self, proposal_id: u64) {
-        let result_state = count_votes(proposal_id);
-        self.update_status(proposal_id, result_state);
+        // Verify the caller is the admin
+        assert_eq!(env::predecessor_account_id(), self.admin, "Only the admin can finalize proposals");
+
+        proposal_contract::ext(self.proposal_contract_id.clone())
+            .with_attached_deposit(NearToken::from_near(0))
+            .with_static_gas(Gas::from_tgas(5))
+            .update_status(proposal_id);
     }
 }
 
@@ -100,6 +119,20 @@ mod tests {
         let context = VMContextBuilder::new()
             .current_account_id(accounts(0))
             .predecessor_account_id(accounts(0))
+            .finish();
+        testing_env!(context);
+
+        let mut contract = DAO::new(accounts(0));
+        let proposal_id = contract.create_proposal("Test Proposal".to_string(), "This is a test proposal".to_string(), 1000, vec!["Option 1".to_string(), "Option 2".to_string()], 1);
+        contract.finalize_proposal(proposal_id);
+    }
+
+    #[test]
+    #[should_panic(expected = "Only the admin can create proposals")]
+    fn test_dao_finalize_proposal_fail() {
+        let context = VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(accounts(1))
             .finish();
         testing_env!(context);
 

@@ -1,10 +1,11 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{ env, near_bindgen, AccountId, PanicOnDefault};
-use near_sdk::ext_contract;
 use near_sdk::collections::{UnorderedMap, Vector};
+use near_sdk::{ env, near_bindgen, AccountId, PanicOnDefault};
+use serde::{Deserialize, Serialize};
+use crate::vote;
 
 // Represent the state of a proposal
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[derive(BorshDeserialize, BorshSerialize)]
 pub enum ProposalState {
     Open,
     Closed,
@@ -13,8 +14,7 @@ pub enum ProposalState {
 }
 
 //Proposal Structure
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize, Deserialize)]
 pub struct Proposal {
     title: String, 
     description: String,
@@ -32,6 +32,8 @@ pub struct ProposalContract {
     proposals: UnorderedMap<u64, Proposal>,
     proposal_count: u64,
 }
+
+
 
 // Implement the Proposal Contract
 #[near_bindgen]
@@ -59,7 +61,7 @@ impl ProposalContract {
             state: ProposalState::Open,
         };
         assert!(deadline > env::block_timestamp(), "Deadline must be in the future");
-        assert!(options.len() > 1, "At least two options are required")
+        assert!(options.len() > 1, "At least two options are required");
         self.proposals.insert(&proposal_id, &new_proposal);
         self.proposal_count += 1;
         env::log_str(&format!("Proposal {} created: '{}'", proposal_id, title));
@@ -77,8 +79,9 @@ impl ProposalContract {
     }
 
     // Update proposal status
-    pub fn update_status(&mut self, proposal_id: u64, new_state: ProposalState) {
+    pub fn update_status(&mut self, proposal_id: u64) {
         let mut proposal = self.proposals.get(&proposal_id).expect("Proposal not found");
+        let new_state = self.count_votes(proposal_id);
         proposal.state = new_state;
         self.proposals.insert(&proposal_id, &proposal);
         env::log_str(&format!("Proposal {} status updated to {:?}", proposal_id, new_state));
@@ -157,5 +160,17 @@ mod tests {
         contract.update_status(proposal_id, ProposalState::Closed);
         let proposal = contract.get_proposal(proposal_id).expect("Proposal not found");
         assert_eq!(proposal.state, ProposalState::Closed);
+    }
+
+    #[test]
+    #[should_panic(expected = "Proposal not found")]
+    fn test_update_status_fail() {
+        let context = VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(accounts(1))
+            .build();
+        testing_env!(context);
+        let mut contract = ProposalContract::new();
+        contract.update_status(0, ProposalState::Closed);
     }
 }

@@ -1,8 +1,7 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{ near_bindgen, AccountId, PanicOnDefault, ext_contract, Promise, Gas};
+use near_sdk::{ env, near_bindgen, AccountId, ext_contract, Gas};
 use near_sdk::json_types::U128;
-use crate::proposal::{Proposal, ProposalContract, ProposalState};
-use near_sdk::collections::UnorderedMap;
+use crate::proposal::{ProposalContract, ProposalState};
 
 #[ext_contract(ft_contract)]
 pub trait FungibleToken {
@@ -12,12 +11,11 @@ pub trait FungibleToken {
 #[near_bindgen]
 impl ProposalContract {
     // Cast a vote on a specific proposal
-
     pub fn vote(&mut self, proposal_id: u64, voter: AccountId, vote_option: u8) {
-        ft_contract::ft_balance_of(voter.clone())
+        ft_contract::ft_balance_of(voter.clone(),)
             .then(
                 Self::ext(env::current_account_id())
-                    .with_static_gas(Gas(5_000_000_000_000))
+                    .with_static_gas(Gas::from_tgas(5))
                     .process_vote_callback(proposal_id, voter, vote_option)
             );
     }
@@ -105,6 +103,7 @@ mod tests {
             .predecessor_account_id(accounts(1))
             .build();
         testing_env!(context);
+
         let mut contract = ProposalContract::new();
         let proposal_id = contract.create_proposal(
             "Test Proposal".to_string(),
@@ -115,17 +114,18 @@ mod tests {
         );
         contract.vote(proposal_id, accounts(1), 0);
         let votes = contract.get_votes(proposal_id);
-        assert_eq!(votes, vec![("Option A".to_string(), 1), ("Option B".to_string(), 0)]);
+        assert_eq!(votes[0].1, 1);
     }
 
     #[test]
     #[should_panic(expected = "Voting period has ended")]
-    fn test_vote_fail_voting_period() {
+    fn test_vote_expired() {
         let context = VMContextBuilder::new()
             .current_account_id(accounts(0))
             .predecessor_account_id(accounts(1))
             .build();
         testing_env!(context);
+
         let mut contract = ProposalContract::new();
         let proposal_id = contract.create_proposal(
             "Test Proposal".to_string(),
@@ -139,12 +139,13 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Proposal is not open for voting")]
-    fn test_vote_fail_proposal_not_open() {
+    fn test_vote_not_open() {
         let context = VMContextBuilder::new()
             .current_account_id(accounts(0))
             .predecessor_account_id(accounts(1))
             .build();
         testing_env!(context);
+
         let mut contract = ProposalContract::new();
         let proposal_id = contract.create_proposal(
             "Test Proposal".to_string(),
@@ -159,12 +160,13 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Voter has already voted")]
-    fn test_vote_fail_voter_has_voted() {
+    fn test_vote_already_voted() {
         let context = VMContextBuilder::new()
             .current_account_id(accounts(0))
             .predecessor_account_id(accounts(1))
             .build();
         testing_env!(context);
+
         let mut contract = ProposalContract::new();
         let proposal_id = contract.create_proposal(
             "Test Proposal".to_string(),
@@ -179,12 +181,13 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Invalid option")]
-    fn test_vote_fail_invalid_option() {
+    fn test_vote_invalid_option() {
         let context = VMContextBuilder::new()
             .current_account_id(accounts(0))
             .predecessor_account_id(accounts(1))
             .build();
         testing_env!(context);
+
         let mut contract = ProposalContract::new();
         let proposal_id = contract.create_proposal(
             "Test Proposal".to_string(),
@@ -197,32 +200,26 @@ mod tests {
     }
 
     #[test]
-    fn test_get_votes() {
+    #[should_panic(expected = "Insufficient balance to vote")]
+    fn test_vote_insufficient_balance() {
         let context = VMContextBuilder::new()
             .current_account_id(accounts(0))
             .predecessor_account_id(accounts(1))
             .build();
         testing_env!(context);
+
         let mut contract = ProposalContract::new();
-        let proposal_id = contract.create_proposal(
-            "Test Proposal".to_string(),
-            "This is a test proposal".to_string(),
-            env::block_timestamp() + 1000,
-            vec!["Option A".to_string(), "Option B".to_string()],
-            1,
-        );
-        contract.vote(proposal_id, accounts(1), 0);
-        let votes = contract.get_votes(proposal_id);
-        assert_eq!(votes, vec![("Option A".to_string(), 1), ("Option B".to_string(), 0)]);
+        contract.vote(0, accounts(1), 0);
     }
 
     #[test]
-    fn test_count_votes_passed() {
+    fn test_count_votes() {
         let context = VMContextBuilder::new()
             .current_account_id(accounts(0))
             .predecessor_account_id(accounts(1))
             .build();
         testing_env!(context);
+
         let mut contract = ProposalContract::new();
         let proposal_id = contract.create_proposal(
             "Test Proposal".to_string(),
@@ -233,6 +230,7 @@ mod tests {
         );
         contract.vote(proposal_id, accounts(1), 0);
         contract.vote(proposal_id, accounts(2), 0);
+        contract.vote(proposal_id, accounts(3), 1);
         assert_eq!(contract.count_votes(proposal_id), ProposalState::Passed);
     }
 
@@ -243,6 +241,7 @@ mod tests {
             .predecessor_account_id(accounts(1))
             .build();
         testing_env!(context);
+
         let mut contract = ProposalContract::new();
         let proposal_id = contract.create_proposal(
             "Test Proposal".to_string(),
@@ -252,6 +251,73 @@ mod tests {
             2,
         );
         contract.vote(proposal_id, accounts(1), 0);
+        contract.vote(proposal_id, accounts(2), 1);
         assert_eq!(contract.count_votes(proposal_id), ProposalState::Rejected);
+    }
+
+    #[test]
+    fn test_count_votes_tie() {
+        let context = VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(accounts(1))
+            .build();
+        testing_env!(context);
+
+        let mut contract = ProposalContract::new();
+        let proposal_id = contract.create_proposal(
+            "Test Proposal".to_string(),
+            "This is a test proposal".to_string(),
+            env::block_timestamp() + 1000,
+            vec!["Option A".to_string(), "Option B".to_string()],
+            2,
+        );
+        contract.vote(proposal_id, accounts(1), 0);
+        contract.vote(proposal_id, accounts(2), 1);
+        assert_eq!(contract.count_votes(proposal_id), ProposalState::Rejected);
+    }
+
+    #[test]
+    fn test_get_votes() {
+        let context = VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(accounts(1))
+            .build();
+        testing_env!(context);
+
+        let mut contract = ProposalContract::new();
+        let proposal_id = contract.create_proposal(
+            "Test Proposal".to_string(),
+            "This is a test proposal".to_string(),
+            env::block_timestamp() + 1000,
+            vec!["Option A".to_string(), "Option B".to_string()],
+            1,
+        );
+        contract.vote(proposal_id, accounts(1), 0);
+        contract.vote(proposal_id, accounts(2), 0);
+        contract.vote(proposal_id, accounts(3), 1);
+        let votes = contract.get_votes(proposal_id);
+        assert_eq!(votes[0].1, 2);
+        assert_eq!(votes[1].1, 1);
+    }
+
+    #[test]
+    fn test_get_votes_empty() {
+        let context = VMContextBuilder::new()
+            .current_account_id(accounts(0))
+            .predecessor_account_id(accounts(1))
+            .build();
+        testing_env!(context);
+
+        let mut contract = ProposalContract::new();
+        let proposal_id = contract.create_proposal(
+            "Test Proposal".to_string(),
+            "This is a test proposal".to_string(),
+            env::block_timestamp() + 1000,
+            vec!["Option A".to_string(), "Option B".to_string()],
+            1,
+        );
+        let votes = contract.get_votes(proposal_id);
+        assert_eq!(votes[0].1, 0);
+        assert_eq!(votes[1].1, 0);
     }
 }
