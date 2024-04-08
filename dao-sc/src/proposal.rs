@@ -83,7 +83,6 @@ impl ProposalContract {
         self.proposals.insert(&proposal_id, &proposal);
         env::log_str(&format!("Proposal {} status updated to {:?}", proposal_id, new_state));
     }
-        
 }
 
 // The rest of this file holds the inline tests for the code above

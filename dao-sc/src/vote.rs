@@ -1,24 +1,53 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{ near_bindgen, AccountId, PanicOnDefault};
+use near_sdk::{ near_bindgen, AccountId, PanicOnDefault, ext_contract, Promise, Gas};
+use near_sdk::json_types::U128;
 use crate::proposal::{Proposal, ProposalContract, ProposalState};
 use near_sdk::collections::UnorderedMap;
+
+#[ext_contract(ft_contract)]
+pub trait FungibleToken {
+    fn ft_balance_of(&self, account_id: AccountId) -> U128;
+}
 
 #[near_bindgen]
 impl ProposalContract {
     // Cast a vote on a specific proposal
+
     pub fn vote(&mut self, proposal_id: u64, voter: AccountId, vote_option: u8) {
-        let mut proposal = self.proposals.get(&proposal_id).expect("Proposal not found");
+        ft_contract::ft_balance_of(voter.clone())
+            .then(
+                Self::ext(env::current_account_id())
+                    .with_static_gas(Gas(5_000_000_000_000))
+                    .process_vote_callback(proposal_id, voter, vote_option)
+            );
+    }
 
-        assert!(env::block_timestamp() <= proposal.deadline, "Voting period has ended");
-        assert!(proposal.state == ProposalState::Open, "Proposal is not open for voting");
-        assert!(!proposal.votes.contains_key(&voter), "Voter has already voted");
-        assert!(proposal.options.get(vote_option as usize).is_some(), "Invalid option");
-        
-        //Register the vote
-        proposal.votes.insert(&voter, &vote_option);
-        self.proposals.insert(&proposal_id, &proposal);
+    #[private]
+    pub fn process_vote_callback(&mut self, proposal_id: u64, voter: AccountId, vote_option: u8, #[callback_result] balance: Result<U128, near_sdk::PromiseError>) {
+        const MINIMUM_BALANCE_REQUIRED: u128 = 1;
+        match balance {
+            Ok(balance) => {
+                if balance.0 >= MINIMUM_BALANCE_REQUIRED {
+                    let mut proposal = self.proposals.get(&proposal_id).expect("Proposal not found");
 
-        env::log_str(&format!("Vote cast by {} for option {}", voter, vote_option));
+                    assert!(env::block_timestamp() <= proposal.deadline, "Voting period has ended");
+                    assert!(proposal.state == ProposalState::Open, "Proposal is not open for voting");
+                    assert!(!proposal.votes.contains_key(&voter), "Voter has already voted");
+                    assert!(proposal.options.get(vote_option as usize).is_some(), "Invalid option");
+                    
+                    //Register the vote
+                    proposal.votes.insert(&voter, &vote_option);
+                    self.proposals.insert(&proposal_id, &proposal);
+
+                    env::log_str(&format!("Vote cast by {} for option {}", voter, vote_option));
+                } else {
+                    env::panic_str("Insufficient balance to vote");
+                }
+            },
+            Err(e) => {
+                env::panic_str(&format!("Failed to retrieve balance: {:?}", e));
+            }
+        }
     }
 
     // Get the votes for a specific proposal
