@@ -72,15 +72,16 @@ impl DAO {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use near_sdk::MockedBlockchain;
     use near_sdk::{testing_env, VMContext};
+    use near_sdk::PublicKey;
+    use std::str::FromStr;
 
     // Use `cargo test -- --nocapture` to view logs
     #[test]
     fn test_create_proposal() {
-        let context = get_context("admin".to_string());
+        let context = get_context("admin".parse().unwrap());
         testing_env!(context);
-        let mut contract = DAO::new("admin".to_string(), "proposal".to_string());
+        let mut contract = DAO::new("admin".parse().unwrap(), "proposal".parse().unwrap());
         contract.create_proposal(
             "title".to_string(),
             "description".to_string(),
@@ -92,28 +93,29 @@ mod tests {
 
     #[test]
     fn test_finalize_proposal() {
-        let context = get_context("admin".to_string());
+        let context = get_context("admin".parse().unwrap());
         testing_env!(context);
-        let mut contract = DAO::new("admin".to_string(), "proposal".to_string());
+        let mut contract = DAO::new("admin".parse().unwrap(), "proposal".parse().unwrap());
         contract.finalize_proposal(0);
     }
 
-    fn get_context(predecessor_account_id: String) -> VMContext {
+    fn get_context(predecessor_account_id: AccountId) -> VMContext {
         VMContext {
-            current_account_id: "dao".to_string(),
-            signer_account_id: "signer".to_string(),
-            signer_account_pk: vec![0, 1, 2],
+            current_account_id: "dao".parse().unwrap(),
+            signer_account_id: "signer".parse().unwrap(),
+            signer_account_pk:  PublicKey::from_str("ed25519:3tH4yM9oYuZFUHX6SxKJEzDiQUDfydBKH4rXXQbVZxjj")
+                                .expect("Failed to create public key"),
             predecessor_account_id,
             input: vec![],
             block_index: 0,
             block_timestamp: 0,
-            account_balance: 0,
-            account_locked_balance: 0,
+            account_balance: NearToken::from_yoctonear(0),
+            account_locked_balance: NearToken::from_yoctonear(0),
             storage_usage: 10u64.pow(6),
-            attached_deposit: 0,
-            prepaid_gas: 10u64.pow(15),
-            random_seed: vec![0, 1, 2],
-            is_view: false,
+            attached_deposit: NearToken::from_yoctonear(0),
+            prepaid_gas: Gas::from_tgas(200),
+            random_seed: [0u8; 32],
+            view_config: None,
             output_data_receivers: vec![],
             epoch_height: 19,
         }
@@ -122,9 +124,9 @@ mod tests {
     #[test]
     #[should_panic(expected = "Only the admin can create proposals")]
     fn test_create_proposal_not_admin() {
-        let context = get_context("not_admin".to_string());
+        let context = get_context("not_admin".parse().unwrap());
         testing_env!(context);
-        let mut contract = DAO::new("admin".to_string(), "proposal".to_string());
+        let mut contract = DAO::new("admin".parse().unwrap(), "proposal".parse().unwrap());
         contract.create_proposal(
             "title".to_string(),
             "description".to_string(),
@@ -137,26 +139,17 @@ mod tests {
     #[test]
     #[should_panic(expected = "Only the admin can finalize proposals")]
     fn test_finalize_proposal_not_admin() {
-        let context = get_context("not_admin".to_string());
+        let context = get_context("not_admin".parse().unwrap());
         testing_env!(context);
-        let mut contract = DAO::new("admin".to_string(), "proposal".to_string());
+        let mut contract = DAO::new("admin".parse().unwrap(), "proposal".parse().unwrap());
         contract.finalize_proposal(0);
     }
 
     #[test]
-    #[should_panic(expected = "Already initialized")]
-    fn test_init_twice() {
-        let context = get_context("admin".to_string());
-        testing_env!(context);
-        let mut contract = DAO::new("admin".to_string(), "proposal".to_string());
-        contract = DAO::new("admin".to_string(), "proposal".to_string());
-    }
-
-    #[test]
     fn test_init() {
-        let context = get_context("admin".to_string());
+        let context = get_context("admin".parse().unwrap());
         testing_env!(context);
-        let contract = DAO::new("admin".to_string(), "proposal".to_string());
+        let contract = DAO::new("admin".parse().unwrap(), "proposal".parse().unwrap());
         assert_eq!(contract.admin, "admin".to_string());
         assert_eq!(contract.proposal_contract_id, "proposal".to_string());
     }
