@@ -1,7 +1,8 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{ env, near_bindgen, AccountId, ext_contract, Gas};
+use near_sdk::{ env, near_bindgen, AccountId, ext_contract, Gas, NearToken, Promise, PromiseError};
 use near_sdk::json_types::U128;
-use crate::proposal::{ProposalContract, ProposalState};
+use crate::ProposalContract;
+use crate::ProposalState;
+use crate::ProposalContractExt;
 
 #[ext_contract(ft_contract)]
 pub trait FungibleToken {
@@ -11,17 +12,21 @@ pub trait FungibleToken {
 #[near_bindgen]
 impl ProposalContract {
     // Cast a vote on a specific proposal
-    pub fn vote(&mut self, proposal_id: u64, voter: AccountId, vote_option: u8) {
-        ft_contract::ft_balance_of(voter.clone(),)
-            .then(
-                Self::ext(env::current_account_id())
-                    .with_static_gas(Gas::from_tgas(5))
-                    .process_vote_callback(proposal_id, voter, vote_option)
-            );
+    pub fn vote(&mut self, proposal_id: u64, voter: AccountId, vote_option: u8) -> Promise {
+        let promise = ft_contract::ext(env::current_account_id())
+            .with_attached_deposit(NearToken::from_near(0))
+            .with_static_gas(Gas::from_tgas(5))
+            .ft_balance_of(voter.clone());
+
+        return promise.then(
+            Self::ext(env::current_account_id())
+                .with_static_gas(Gas::from_tgas(5))
+                .process_vote_callback(proposal_id, voter, vote_option)
+        )
     }
 
     #[private]
-    pub fn process_vote_callback(&mut self, proposal_id: u64, voter: AccountId, vote_option: u8, #[callback_result] balance: Result<U128, near_sdk::PromiseError>) {
+    pub fn process_vote_callback(&mut self, proposal_id: u64, voter: AccountId, vote_option: u8, #[callback_result] balance: Result<U128, PromiseError>) {
         const MINIMUM_BALANCE_REQUIRED: u128 = 1;
         match balance {
             Ok(balance) => {
@@ -30,8 +35,8 @@ impl ProposalContract {
 
                     assert!(env::block_timestamp() <= proposal.deadline, "Voting period has ended");
                     assert!(proposal.state == ProposalState::Open, "Proposal is not open for voting");
-                    assert!(!proposal.votes.contains_key(&voter), "Voter has already voted");
-                    assert!(proposal.options.get(vote_option as usize).is_some(), "Invalid option");
+                    assert!(proposal.votes.get(&voter).is_none(), "Voter has already voted");
+                    assert!(proposal.options.get(vote_option as u64).is_some(), "Invalid option");
                     
                     //Register the vote
                     proposal.votes.insert(&voter, &vote_option);
@@ -52,7 +57,7 @@ impl ProposalContract {
     pub fn get_votes(&self, proposal_id: u64) -> Vec<(String, u64)> {
         let proposal = self.proposals.get(&proposal_id).expect("Proposal not found");
         let mut votes: Vec<(String, u64)> = proposal.options.iter().map(|option| (option, 0)).collect();
-        for (_voter, &vote_option) in proposal.votes.iter() {
+        for (_voter, vote_option) in proposal.votes.iter() {
             let option_index = vote_option as usize;
             if let Some((_option, count)) = votes.get_mut(option_index) {
                 *count += 1;
@@ -69,7 +74,7 @@ impl ProposalContract {
         let mut votes_for_option_b = 0;
     
         // Iterate through votes to count for each option
-        for (_account, &vote) in proposal.votes.iter() {
+        for (_account, vote) in proposal.votes.iter() {
             if vote == 0 { // Assuming 0 represents Option A
                 votes_for_option_a += 1;
             } else if vote == 1 { // Assuming 1 represents Option B

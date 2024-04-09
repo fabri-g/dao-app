@@ -1,11 +1,11 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{UnorderedMap, Vector};
 use near_sdk::{ env, near_bindgen, AccountId, PanicOnDefault};
-use serde::{Deserialize, Serialize};
-use crate::vote;
+
+mod vote;
 
 // Represent the state of a proposal
-#[derive(BorshDeserialize, BorshSerialize)]
+#[derive(BorshDeserialize, BorshSerialize, PartialEq, Debug)]
 pub enum ProposalState {
     Open,
     Closed,
@@ -14,7 +14,7 @@ pub enum ProposalState {
 }
 
 //Proposal Structure
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize, Deserialize)]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Proposal {
     title: String, 
     description: String,
@@ -32,8 +32,6 @@ pub struct ProposalContract {
     proposals: UnorderedMap<u64, Proposal>,
     proposal_count: u64,
 }
-
-
 
 // Implement the Proposal Contract
 #[near_bindgen]
@@ -224,7 +222,7 @@ mod tests {
     }
 
     #[test]
-    test_list_proposals {
+    fn test_list_proposals() {
         let context = get_context("alice".to_string());
         testing_env!(context);
         let mut contract = ProposalContract::new();
