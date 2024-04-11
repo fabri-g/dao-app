@@ -1,4 +1,3 @@
-// Find all our documentation at https://docs.near.org
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk:: {
     env, 
@@ -64,10 +63,7 @@ impl DAO {
     }
 }
 
-/*
- * The rest of this file holds the inline tests for the code above
- * Learn more about Rust tests: https://doc.rust-lang.org/book/ch11-01-writing-tests.html
- */
+// The rest of this file holds the inline tests for the code above
 
 #[cfg(test)]
 mod tests {
