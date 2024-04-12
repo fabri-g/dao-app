@@ -110,7 +110,7 @@ mod tests {
     fn test_vote() {
         let context = get_context("voter".parse().unwrap());
         testing_env!(context);
-        let mut contract = ProposalContract::new();
+        let mut contract = ProposalContract::new("token-contract".parse().unwrap());
         contract.create_proposal(
             "title".to_string(),
             "description".to_string(),
@@ -125,7 +125,7 @@ mod tests {
     fn test_count_votes() {
         let context = get_context("voter".parse().unwrap());
         testing_env!(context);
-        let mut contract = ProposalContract::new();
+        let mut contract = ProposalContract::new("token-contract".parse().unwrap());
         contract.create_proposal(
             "title".to_string(),
             "description".to_string(),
@@ -163,7 +163,7 @@ mod tests {
     fn test_process_vote_callback() {
         let context = get_context("voter".parse().unwrap());
         testing_env!(context);
-        let mut contract = ProposalContract::new();
+        let mut contract = ProposalContract::new("token-contract".parse().unwrap());
         contract.create_proposal(
             "title".to_string(),
             "description".to_string(),
@@ -179,7 +179,7 @@ mod tests {
     fn test_process_vote_callback_insufficient_balance() {
         let context = get_context("voter".parse().unwrap());
         testing_env!(context);
-        let mut contract = ProposalContract::new();
+        let mut contract = ProposalContract::new("token-contract".parse().unwrap());
         contract.create_proposal(
             "title".to_string(),
             "description".to_string(),
@@ -195,7 +195,7 @@ mod tests {
     fn test_process_vote_callback_voting_period_ended() {
         let context = get_context("voter".parse().unwrap());
         testing_env!(context);
-        let mut contract = ProposalContract::new();
+        let mut contract = ProposalContract::new("token-contract".parse().unwrap());
         contract.create_proposal(
             "title".to_string(),
             "description".to_string(),
@@ -211,7 +211,7 @@ mod tests {
     fn test_process_vote_callback_proposal_not_open() {
         let context = get_context("voter".parse().unwrap());
         testing_env!(context);
-        let mut contract = ProposalContract::new();
+        let mut contract = ProposalContract::new("token-contract".parse().unwrap());
         contract.create_proposal(
             "title".to_string(),
             "description".to_string(),
@@ -228,7 +228,7 @@ mod tests {
     fn test_process_vote_callback_voter_already_voted() {
         let context = get_context("voter".parse().unwrap());
         testing_env!(context);
-        let mut contract = ProposalContract::new();
+        let mut contract = ProposalContract::new("token-contract".parse().unwrap());
         let proposal_id = contract.create_proposal(
             "title".to_string(),
             "description".to_string(),
@@ -245,7 +245,7 @@ mod tests {
     fn test_process_vote_callback_invalid_option() {
         let context = get_context("voter".parse().unwrap());
         testing_env!(context);
-        let mut contract = ProposalContract::new();
+        let mut contract = ProposalContract::new("token-contract".parse().unwrap());
         contract.create_proposal(
             "title".to_string(),
             "description".to_string(),
@@ -261,7 +261,7 @@ mod tests {
     fn test_process_vote_callback_not_enough_allowance() {
         let context = get_context("voter".parse().unwrap());
         testing_env!(context);
-        let mut contract = ProposalContract::new();
+        let mut contract = ProposalContract::new("token-contract".parse().unwrap());
         contract.create_proposal(
             "title".to_string(),
             "description".to_string(),
@@ -277,7 +277,7 @@ mod tests {
     fn test_process_vote_callback_proposal_not_found() {
         let context = get_context("voter".parse().unwrap());
         testing_env!(context);
-        let mut contract = ProposalContract::new();
+        let mut contract = ProposalContract::new("token-contract".parse().unwrap());
         contract.process_vote_callback(0, "voter".parse().unwrap(), 0, Ok(U128(1)));
     }
 
@@ -285,7 +285,7 @@ mod tests {
     fn test_get_votes() {
         let context = get_context("voter".parse().unwrap());
         testing_env!(context);
-        let mut contract = ProposalContract::new();
+        let mut contract = ProposalContract::new("token-contract".parse().unwrap());
         let proposal_id = contract.create_proposal(
             "title".to_string(),
             "description".to_string(),

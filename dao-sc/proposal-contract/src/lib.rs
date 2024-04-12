@@ -108,7 +108,7 @@ mod tests {
     fn test_proposal() {
         let context = get_context("alice".parse().unwrap());
         testing_env!(context);
-        let mut contract = ProposalContract::new();
+        let mut contract = ProposalContract::new("token-contract".parse().unwrap());
         let options_vec = vec!["Yes".to_string(), "No".to_string()];
         let proposal_id = contract.create_proposal(
             "Test Proposal".to_string(),
@@ -151,7 +151,7 @@ mod tests {
     fn test_update_status() {
         let context = get_context("alice".parse().unwrap());
         testing_env!(context);
-        let mut contract = ProposalContract::new();
+        let mut contract = ProposalContract::new("token-contract".parse().unwrap());
         let options_vec = vec!["Yes".to_string(), "No".to_string()];
         let proposal_id = contract.create_proposal(
             "Test Proposal".to_string(),
@@ -170,7 +170,7 @@ mod tests {
     fn test_list_proposals() {
         let context = get_context("alice".parse().unwrap());
         testing_env!(context);
-        let mut contract = ProposalContract::new();
+        let mut contract = ProposalContract::new("token-contract".parse().unwrap());
         let options_vec = vec!["Yes".to_string(), "No".to_string()];
         let proposal_id = contract.create_proposal(
             "Test Proposal".to_string(),
@@ -189,7 +189,7 @@ mod tests {
     fn test_update_status_invalid_proposal() {
         let context = get_context("alice".parse().unwrap());
         testing_env!(context);
-        let mut contract = ProposalContract::new();
+        let mut contract = ProposalContract::new("token-contract".parse().unwrap());
         contract.update_status(0);
     }
 
@@ -199,7 +199,7 @@ mod tests {
         let context = get_context("alice".parse().unwrap());
         testing_env!(context);
         let options_vec = vec!["Yes".to_string(), "No".to_string()];
-        let mut contract = ProposalContract::new();
+        let mut contract = ProposalContract::new("token-contract".parse().unwrap());
         contract.create_proposal(
             "Test Proposal".to_string(),
             "This is a test proposal".to_string(),
