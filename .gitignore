@@ -1,3 +1,14 @@
-# Rust 
-**/target
-**/Cargo.lock
+#cache
+.cache
+.parcel-cache
+
+#contracts
+target
+notes
+
+# testing
+/coverage
+
+# dependencies
+package-lock.json
+*.lock
