@@ -25,6 +25,25 @@ async fn test_create_proposal_and_vote() -> anyhow::Result<()> {
         .transact()
         .await?;
 
+    let metadata = json!({
+        "spec": "ft-1.0.0",
+        "name": "Fabri-DAO Token",
+        "symbol": "FDAO",
+        "icon": "data:image/svg+xml;base64,PHN2ZyB...",
+        "reference": null,
+        "reference_hash": null,
+        "decimals": 24
+    });
+    
+    token_contract.call("new")
+        .args_json(json!({
+            "owner_id": root.id(),
+            "total_supply": "1000000000000000000000000", // 1 million tokens in lowest denomination
+            "metadata": metadata
+        }))
+        .transact()
+        .await?;
+
     // Create a proposal using the DAO contract
     let create_proposal_outcome = dao_contract
         .call("create_proposal")
@@ -44,7 +63,7 @@ async fn test_create_proposal_and_vote() -> anyhow::Result<()> {
         .args_json(serde_json::json!({
             "account_id": "voter.testnet",
             "amount": "1000"
-        }))?
+        }))
         .transact().await?;
     
     // Cast a vote on the proposal
@@ -66,8 +85,8 @@ async fn test_create_proposal_and_vote() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-        let yes_votes = votes.iter().find(|(option, _)| option == "Yes").map(|(_, count)| *count).unwrap_or(0);
-        assert_eq!(yes_votes, 1, "The 'Yes' option should have 1 vote.");
+    let yes_votes = votes.iter().find(|(option, _)| option == "Yes").map(|(_, count)| *count).unwrap_or(0);
+    assert_eq!(yes_votes, 1, "The 'Yes' option should have 1 vote.");
 
     Ok(())
 }

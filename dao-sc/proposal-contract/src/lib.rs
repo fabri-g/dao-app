@@ -31,6 +31,7 @@ pub struct Proposal {
 pub struct ProposalContract {
     proposals: UnorderedMap<u64, Proposal>,
     proposal_count: u64,
+    token_contract_id: AccountId,
 }
 
 // Implement the Proposal Contract
@@ -38,11 +39,12 @@ pub struct ProposalContract {
 impl ProposalContract {
     //Iinitializes the contract
     #[init]
-    pub fn new() -> Self {
+    pub fn new(token_contract_id: AccountId) -> Self {
         assert!(!env::state_exists(), "The contract is already initialized");
         Self {
             proposals: UnorderedMap::new(b"p"),
             proposal_count: 0,
+            token_contract_id,
         }
     }
 

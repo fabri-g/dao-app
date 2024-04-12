@@ -13,7 +13,7 @@ pub trait FungibleToken {
 impl ProposalContract {
     // Cast a vote on a specific proposal
     pub fn vote(&mut self, proposal_id: u64, voter: AccountId, vote_option: u8) -> Promise {
-        let promise = ft_contract::ext(env::current_account_id())
+        let promise = ft_contract::ext(self.token_contract_id.clone())
             .with_attached_deposit(NearToken::from_near(0))
             .with_static_gas(Gas::from_tgas(5))
             .ft_balance_of(voter.clone());
