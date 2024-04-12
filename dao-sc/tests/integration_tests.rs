@@ -17,6 +17,30 @@ async fn test_create_proposal_and_vote() -> anyhow::Result<()> {
     let token_contract = root.deploy(&token_contract_wasm).await?;
 
     // Initialize contracts 
+    token_contract.call("new")
+        .args_json(json!({
+            "owner_id": root.id(),
+            "total_supply": "1000000000000000000000000",
+            "metadata": {
+                "spec": "ft-1.0.0",
+                "name": "Fabri-DAO Token",
+                "symbol": "FDAO",
+                "icon": "data:image/svg+xml;base64,PHN2ZyB...",
+                "reference": null,
+                "reference_hash": null,
+                "decimals": 24
+            }
+        }))
+        .transact()
+        .await?;
+
+    proposal_contract.call("new")
+        .args_json(json!({
+            "token_contract_id": token_contract.id() 
+        }))
+        .transact()
+        .await?;
+
     dao_contract.call("new")
         .args_json(json!({
             "admin_account_id": root.id(),
@@ -25,36 +49,17 @@ async fn test_create_proposal_and_vote() -> anyhow::Result<()> {
         .transact()
         .await?;
 
-    let metadata = json!({
-        "spec": "ft-1.0.0",
-        "name": "Fabri-DAO Token",
-        "symbol": "FDAO",
-        "icon": "data:image/svg+xml;base64,PHN2ZyB...",
-        "reference": null,
-        "reference_hash": null,
-        "decimals": 24
-    });
-    
-    token_contract.call("new")
-        .args_json(json!({
-            "owner_id": root.id(),
-            "total_supply": "1000000000000000000000000", // 1 million tokens in lowest denomination
-            "metadata": metadata
-        }))
-        .transact()
-        .await?;
-
-    // Create a proposal using the DAO contract
     let create_proposal_outcome = dao_contract
         .call("create_proposal")
         .args_json(serde_json::json!({
             "title": "New Proposal",
             "description": "Description here",
-            "deadline": 1000000, // Example timestamp
+            "deadline": 1000000,
             "options": ["Yes", "No"],
             "minimum_votes": 1
         }))?
-        .transact().await?;
+        .transact()
+        .await?;
     
     let proposal_id: u64 = create_proposal_outcome.json()?;
 
@@ -64,7 +69,8 @@ async fn test_create_proposal_and_vote() -> anyhow::Result<()> {
             "account_id": "voter.testnet",
             "amount": "1000"
         }))
-        .transact().await?;
+        .transact()
+        .await?;
     
     // Cast a vote on the proposal
     proposal_contract
@@ -74,7 +80,8 @@ async fn test_create_proposal_and_vote() -> anyhow::Result<()> {
             "voter": "voter.testnet",
             "vote_option": 0 // Yes
         }))?
-        .transact().await?;
+        .transact()
+        .await?;
     
     // Verify the vote was cast
     let votes: Vec<(String, u64)> = proposal_contract.call("get_votes")
