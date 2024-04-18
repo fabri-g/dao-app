@@ -6,7 +6,9 @@ use near_sdk:: {
     PanicOnDefault,
     Gas,
     ext_contract, 
-    NearToken
+    NearToken,
+    Promise, 
+    PromiseError
 };
 
 //DAO Structure
@@ -20,7 +22,7 @@ pub struct DAO {
 // Cross-Contract Call Needed
 #[ext_contract(proposal_contract)]
 pub trait ProposalContractInterface {
-    fn create_proposal(&mut self, title: String, description: String, deadline: u64, options: Vec<String>, minimum_votes: u8);
+    fn create_proposal(&mut self, title: String, description: String, deadline: u64, options_vec: Vec<String>, minimum_votes: u8);
     fn update_status(&mut self, proposal_id: u64);
 }
 
@@ -29,27 +31,57 @@ pub trait ProposalContractInterface {
 impl DAO {
     #[init]
     pub fn new(admin_account_id: AccountId, proposal_contract_id: AccountId) -> Self {
-        assert!(!env::state_exists(), "Already initialized");
+        //assert!(!env::state_exists(), "Already initialized");
+        env::log_str("Starting initialization.");
         Self {
             admin: admin_account_id,
             proposal_contract_id,
         }
     }
 
-    pub fn create_proposal(&mut self, title: String, description: String, deadline: u64, options: Vec<String>, minimum_votes: u8) {
+    pub fn get_admin_id(&self) -> &AccountId {
+        env::log_str(&format!("Current block timestamp: {}", env::block_timestamp()));
+        &self.admin
+    }
+
+    pub fn get_proposal_contract_id(&self) -> &AccountId {
+        &self.proposal_contract_id
+    }
+
+    pub fn create_proposal(&mut self, title: String, description: String, deadline: u64, options_vec: Vec<String>, minimum_votes: u8) -> Promise {
         // Verify the caller is the admin
         assert_eq!(env::predecessor_account_id(), self.admin, "Only the admin can create proposals");
+        env::log_str(&format!("Calling create_proposal on: {}", self.proposal_contract_id));
+        env::log_str(&format!("With data: title={}, deadline={}", title, deadline));
 
-        proposal_contract::ext(self.proposal_contract_id.clone())
+        let promise = proposal_contract::ext(self.proposal_contract_id.clone())
             .with_attached_deposit(NearToken::from_near(0))
             .with_static_gas(Gas::from_tgas(20))
             .create_proposal(
                 title,
                 description,
                 deadline,
-                options,
+                options_vec,
                 minimum_votes,
             );
+        promise.then(
+            Self::ext(env::current_account_id())
+                .with_static_gas(Gas::from_tgas(10))
+                .create_proposal_callback()     
+        )
+    }
+
+    #[private]
+    pub fn create_proposal_callback (&mut self, #[callback_result] call_result: Result<u64, PromiseError>) -> u64 {
+        match call_result {
+            Ok(proposal_id) => {
+                env::log_str(&format!("Proposal created with ID: {}", proposal_id));
+                proposal_id
+            },
+            Err(e) => {
+                env::panic_str(&format!("Failed to create proposal: {:?}", e));
+            }
+        }
     }
 
     pub fn finalize_proposal(&mut self, proposal_id: u64) {

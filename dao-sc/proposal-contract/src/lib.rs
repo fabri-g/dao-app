@@ -1,16 +1,28 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{UnorderedMap, Vector};
 use near_sdk::{ env, near_bindgen, AccountId, PanicOnDefault};
+use serde::{Serialize, Deserialize};
 
 mod vote;
 
 // Represent the state of a proposal
-#[derive(BorshDeserialize, BorshSerialize, PartialEq, Debug, Clone)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub enum ProposalState {
     Open,
     Closed,
     Passed,
     Rejected,
+}
+
+impl ToString for ProposalState {
+    fn to_string(&self) -> String {
+        match self {
+            ProposalState::Open => "Open".to_owned(),
+            ProposalState::Closed => "Closed".to_owned(),
+            ProposalState::Passed => "Passed".to_owned(),
+            ProposalState::Rejected => "Rejected".to_owned(),
+        }
+    }
 }
 
 //Proposal Structure
@@ -40,7 +52,7 @@ impl ProposalContract {
     //Iinitializes the contract
     #[init]
     pub fn new(token_contract_id: AccountId) -> Self {
-        assert!(!env::state_exists(), "The contract is already initialized");
+        //assert!(!env::state_exists(), "The contract is already initialized");
         Self {
             proposals: UnorderedMap::new(b"p"),
             proposal_count: 0,
@@ -50,6 +62,7 @@ impl ProposalContract {
 
     // Create a new proposal
     pub fn create_proposal(&mut self, title: String, description: String, deadline: u64, options_vec: Vec<String>, minimum_votes: u8) -> u64 {
+        env::log_str(&format!("Received proposal with title: {}, deadline: {}", title, deadline));
         let proposal_id = self.proposal_count;
         let mut options = Vector::new(b"p");
         for option in options_vec.into_iter() {
@@ -73,20 +86,29 @@ impl ProposalContract {
     }
 
     // Get a proposal
-    pub fn get_proposal(&self, proposal_id: u64) -> Option<Proposal> {
-        self.proposals.get(&proposal_id)
+    pub fn get_proposal(&self, proposal_id: u64) -> Option<Vec<String>> {
+        self.proposals.get(&proposal_id).map(|proposal| {
+            vec![
+                proposal.title.clone(),
+                proposal.description.clone(),
+                proposal.deadline.to_string(),
+                proposal.minimum_votes.to_string(),
+                proposal.state.to_string(),  
+            ]
+        })
     }
 
     // List all proposals
-    pub fn list_proposals(&self) -> Vec<(u64, Proposal)> {
-        self.proposals.iter().collect()
+    pub fn list_proposals(&self) -> Vec<u64> {
+         self.proposals.keys().collect()
     }
 
     // Update proposal status
     pub fn update_status(&mut self, proposal_id: u64) {
         let mut proposal = self.proposals.get(&proposal_id).expect("Proposal not found");
         assert!(env::block_timestamp() > proposal.deadline, "Proposal deadline has not passed yet");
-        let new_state = self.count_votes(proposal_id);
+        // let new_state = self.count_votes(proposal_id);
+        let new_state = ProposalState::Open;
         proposal.state = new_state.clone();
         self.proposals.insert(&proposal_id, &proposal);
         env::log_str(&format!("Proposal {} status updated to {:?}", proposal_id, new_state));
