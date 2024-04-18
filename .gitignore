@@ -1,14 +1,37 @@
-#cache
+# Cache
 .cache
 .parcel-cache
 
-#contracts
+# Contracts
 target
 notes
 
-# testing
+# Testing
 /coverage
 
-# dependencies
+# Dependencies
 package-lock.json
 *.lock
+
+# Build output
+dist/
+build/
+
+# Environment configuration
+.env
+
+# Dependency directories
+node_modules/
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# dotenv environment variables file
+.env.local
+
+# Next.js build output
+.next
+out/
