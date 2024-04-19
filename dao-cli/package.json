@@ -8,5 +8,11 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "inquirer": "^9.2.19",
+    "near-api-js": "^4.0.0",
+    "yargs": "^17.7.2"
+  }
 }
