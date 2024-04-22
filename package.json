@@ -1,5 +1,12 @@
 {
+  "name": "dao_app",
+  "scripts": {
+    "start": "concurrently \"npm run start:frontend\" \"npm run start:backend\"",
+    "start:frontend": "cd dao-frontend && npm run dev",
+    "start:backend": "cd dao-backend && npm run start"
+  },
   "dependencies": {
+    "concurrently": "^8.2.2",
     "express": "^4.19.2"
   }
 }

@@ -7,21 +7,30 @@ const NearContext = createContext(null);
 export const NearProvider = ({ children }) => {
   const [wallet, setWallet] = useState(null);
   const [contract, setContract] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    initNear().then(({ near, wallet }) => {
+    initNear().then(({  near, wallet }) => {
       setWallet(wallet);
-      if (wallet.isSignedIn()) {
-        const contractInstance = new Contract(wallet.account(), NEXT_PUBLIC_PROPOSAL_CONTRACT_ID, {
-          viewMethods: ['list_proposals', 'get_proposal', 'get_votes'],
-          changeMethods: ['vote'],
-        });
-        setContract(contractInstance);
+      if (wallet) {
+        setWallet(wallet);
+        if (wallet.isSignedIn()) {
+          const contractInstance = new Contract(wallet.account(), NEXT_PUBLIC_PROPOSAL_CONTRACT_ID, {
+            viewMethods: ['list_proposals', 'get_proposal', 'get_votes'],
+            changeMethods: ['vote'],
+          });
+          setContract(contractInstance);
+        }
       }
+      setLoading(false);
     });
   }, []);
 
-  return <NearContext.Provider value={{ wallet }}>
+  if (loading) {
+    return <div>Loading...</div>;  
+  }
+
+  return <NearContext.Provider value={{ wallet, contract }}>
     {children}
   </NearContext.Provider>;
 };

@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Space, Spin } from 'antd';
+/* import Card from 'antd/lib/card';
+import Space from 'antd/lib/space';
+import Spin from 'antd/lib/spin'; */
 import Link from 'next/link';
 import { getProposals } from '../hooks/api';
 
@@ -18,23 +20,25 @@ const HomePage = () => {
     fetchProposals();
   }, []);
 
+  if (loading) {
+    return <div>Loading...</div>; 
+  }
+
+  if (proposals.length === 0) {
+    return <div>No proposals available at the moment.</div>; 
+  }
+
   return (
-    <Space direction="vertical" size="middle" style={{ width: '100%', padding: 20 }}>
-      {loading ? (
-        <Spin size="large" />
-      ) : (
-        proposals.map(proposalId => (
-          <Card
-            key={proposalId}
-            title={<Link href={`/proposals/${proposalId}`}><a>Proposal #{proposalId}</a></Link>}
-            style={{ width: '100%' }}
-          >
-            <p>Details about proposal will go here. Click title to view more.</p>
-          </Card>
-        ))
-      )}
-    </Space>
+    <div style={{ width: '100%', padding: '20px' }}>
+      {proposals.map(proposalId => (
+        <div key={proposalId}>
+          <Link href={`/proposals/${proposalId}`}>
+            Proposal #{proposalId}
+          </Link>
+          <p>Details about proposal will go here. Click title to view more.</p>
+        </div>
+      ))}
+    </div>
   );
 };
-
 export default HomePage;

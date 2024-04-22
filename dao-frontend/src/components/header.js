@@ -6,20 +6,22 @@ const Header = () => {
   const { wallet } = useNearWallet();
 
   const handleLogin = () => {
-    wallet.requestSignIn({
-      contractId: NEXT_PUBLIC_PROPOSAL_CONTRACT_ID,
-      methodNames: [] 
-    });
+    if (!wallet) return;
+      wallet.requestSignIn({
+        contractId: NEXT_PUBLIC_PROPOSAL_CONTRACT_ID,
+        methodNames: [] 
+      });
   };
 
   const handleLogout = () => {
-    wallet.signOut();
-    window.location.reload(); 
+    if (!wallet) return;
+      wallet.signOut();
+      window.location.reload(); 
   };
 
   return (
     <header>
-      {wallet.isSignedIn() ? (
+      {wallet && wallet.isSignedIn() ? (
         <>
           <span>Signed in as: {wallet.getAccountId()}</span>
           <button onClick={handleLogout}>Sign out</button>
