@@ -93,6 +93,7 @@ impl ProposalContract {
                 proposal.description.clone(),
                 proposal.deadline.to_string(),
                 proposal.minimum_votes.to_string(),
+                proposal.options.to_vec().join(","),
                 proposal.state.to_string(),  
             ]
         })
