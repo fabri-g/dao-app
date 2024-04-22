@@ -23,9 +23,9 @@ async function initNear() {
         const near = await connect(nearConfig);
         const adminAccount = await near.account(process.env.ADMIN_ACCOUNT_ID);
 
-        contractInstance = new Contract(adminAccount, process.env.DAO_CONTRACT_ID, {
+        contractInstance = new Contract(adminAccount, process.env.PROPOSAL_CONTRACT_ID, {
             viewMethods: ['list_proposals', 'get_proposal'],
-            changeMethods: ['create_proposal', 'finalize_proposal', 'vote'],
+            changeMethods: ['create_proposal', 'update_status', 'vote'],
         });
 
         return contractInstance;
