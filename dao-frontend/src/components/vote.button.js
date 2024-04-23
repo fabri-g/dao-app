@@ -1,26 +1,43 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNearWallet } from '../contexts/near.context';
-import { message } from 'antd';
+import { useAlert } from '../contexts/alert.context';
 
-const VoteComponent = ({ proposalId, option }) => {
+const VoteComponent = ({ proposalId, optionIndex, optionText }) => {
   const { wallet, contract } = useNearWallet();
+  const { showAlert, hideAlert } = useAlert();
 
   const handleVote = async () => {
-    if (!wallet.isSignedIn()) {
-      message.error("Please sign in to vote.");
+    if (!wallet || !wallet.isSignedIn()) {
+      showAlert("Please sign in to vote.", 'error');
       return;
     }
 
+    const accountId = wallet.getAccountId();
+
     try {
-      await contract.vote({ proposal_id: proposalId, vote_option: option });
-      message.success('Vote successful');
+      await contract.vote({ 
+        proposal_id: parseInt(proposalId, 10), 
+        vote_option: optionIndex,
+        voter: accountId 
+      });
+      showAlert(`Vote successful for option: ${optionText}`, 'success');
+      setError(null);
     } catch (error) {
       console.error('Failed to vote:', error);
-      message.error('Failed to vote');
+      showAlert('Failed to vote. Please try again.', 'error');
     }
   };
 
-  return <button onClick={handleVote}>Vote for Option {option}</button>;
+  return (
+    <div>
+      <button
+        onClick={handleVote}
+        className="px-4 py-2 text-indigo-600 bg-indigo-50 rounded-lg duration-150 hover:bg-indigo-100 active:bg-indigo-200 focus:outline-none focus:ring focus:ring-indigo-300 mx-2 my-1"
+      >
+        Vote for {optionText}
+      </button>
+    </div>
+  );
 };
 
 export default VoteComponent;

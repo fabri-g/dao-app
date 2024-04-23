@@ -15,7 +15,7 @@ export const NearProvider = ({ children }) => {
       if (wallet) {
         setWallet(wallet);
         if (wallet.isSignedIn()) {
-          const contractInstance = new Contract(wallet.account(), NEXT_PUBLIC_PROPOSAL_CONTRACT_ID, {
+          const contractInstance = new Contract(wallet.account(), process.env.NEXT_PUBLIC_PROPOSAL_CONTRACT_ID, {
             viewMethods: ['list_proposals', 'get_proposal', 'get_votes'],
             changeMethods: ['vote'],
           });
@@ -36,3 +36,4 @@ export const NearProvider = ({ children }) => {
 };
 
 export const useNearWallet = () => useContext(NearContext);
+
