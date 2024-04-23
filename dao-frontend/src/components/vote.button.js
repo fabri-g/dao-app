@@ -21,7 +21,6 @@ const VoteComponent = ({ proposalId, optionIndex, optionText }) => {
         voter: accountId 
       });
       showAlert(`Vote successful for option: ${optionText}`, 'success');
-      setError(null);
     } catch (error) {
       console.error('Failed to vote:', error);
       showAlert('Failed to vote. Please try again.', 'error');
