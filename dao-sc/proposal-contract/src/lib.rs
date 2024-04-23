@@ -100,8 +100,17 @@ impl ProposalContract {
     }
 
     // List all proposals
-    pub fn list_proposals(&self) -> Vec<u64> {
-         self.proposals.keys().collect()
+    pub fn list_proposals(&self) -> Vec<Vec<String>> {
+        self.proposals
+            .iter()
+            .map(|(proposal_id, proposal)| {
+                vec![
+                    proposal_id.to_string(),
+                    proposal.title.clone(),
+                    proposal.description.clone()
+                ]
+            })
+            .collect()
     }
 
     // Update proposal status
